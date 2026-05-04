@@ -10,6 +10,8 @@ from PySide6.QtGui import (
     QFontMetrics,
     QMouseEvent,
     QPainter,
+    QPaintEvent,
+    QResizeEvent,
 )
 from PySide6.QtWidgets import QApplication, QColorDialog, QLabel, QMenu, QWidget
 
@@ -37,6 +39,7 @@ class TimeDisplay(QWidget):
         self.setup_qss()
 
         self.load_settings()
+        self.update_clock()
 
     def setup_widgets(self) -> None:
         self.time_label = QLabel("--:--:--", self)
@@ -91,7 +94,7 @@ class TimeDisplay(QWidget):
             }
         """)
 
-    def update_qss(self):
+    def update_qss(self) -> None:
         if self.color is not None:
             self.time_label.setStyleSheet(f"""
                 QLabel {{
@@ -100,13 +103,13 @@ class TimeDisplay(QWidget):
                 }}
             """)
 
-    def get_color(self):
+    def get_color(self) -> None:
         self.color = QColorDialog.getColor(parent=self)
         print(self.color.name())
 
         self.update_qss()
 
-    def update_font_size(self):
+    def update_font_size(self) -> None:
         text = self.time_label.text()
         font = QFont()
         font.setBold(True)
@@ -130,7 +133,7 @@ class TimeDisplay(QWidget):
         font.setPixelSize(high)
         self.time_label.setFont(font)
 
-    def reset_size(self):
+    def reset_size(self) -> None:
         self._is_resetting = True
         self.settings.remove("size")
 
@@ -138,7 +141,7 @@ class TimeDisplay(QWidget):
 
         QTimer.singleShot(0, self._finish_reset)
 
-    def _finish_reset(self):
+    def _finish_reset(self) -> None:
         self._is_resetting = False
         self.update_font_size()
 
@@ -229,13 +232,13 @@ class TimeDisplay(QWidget):
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:
         self._dragging = False
 
-    def paintEvent(self, event) -> None:
+    def paintEvent(self, event: QPaintEvent) -> None:
         painter = QPainter(self)
         painter.setBrush(QColor(0, 0, 0, 1))
         painter.setPen(Qt.PenStyle.NoPen)
         painter.drawRect(self.rect())
 
-    def resizeEvent(self, event) -> None:
+    def resizeEvent(self, event: QResizeEvent) -> None:
         super().resizeEvent(event)
         self.time_label.setGeometry(self.rect())
         self.update_font_size()
