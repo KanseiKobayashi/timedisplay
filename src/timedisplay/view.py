@@ -1,6 +1,6 @@
 import datetime
 
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import QSettings, Qt, QTimer
 from PySide6.QtGui import (
     QAction,
     QCloseEvent,
@@ -11,39 +11,48 @@ from PySide6.QtGui import (
     QMouseEvent,
     QPainter,
 )
-from PySide6.QtWidgets import QApplication, QColorDialog, QLabel, QMenu, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QApplication, QColorDialog, QLabel, QMenu, QWidget
 
 
 class TimeDisplay(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+
+        self._is_resetting = False
+
+        self.settings = QSettings("my_company", "time_display")
+
         self.setMouseTracking(True)
         self._dragging = False
         self.oldPosition = None
 
         self.color = None
 
+        self.setWindowFlags(Qt.WindowType.WindowStaysOnTopHint)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
         self.setWindowFlag(Qt.WindowType.NoDropShadowWindowHint)
+
         self.setup_widgets()
         self.setup_qss()
 
-    def setup_widgets(self) -> None:
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
+        self.load_settings()
 
+    def setup_widgets(self) -> None:
         self.time_label = QLabel("--:--:--", self)
+        self.time_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.time_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+
         font = QFont()
         font.setPointSize(24)
         self.time_label.setFont(font)
+
+        self.time_label.setGeometry(0, 0, 200, 80)  # 初期サイズ
+
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.update_clock)
         self.timer.start(1000)
-        self.time_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        layout.addWidget(self.time_label)
 
     def update_clock(self) -> None:
         if not self.time_label:
@@ -59,8 +68,13 @@ class TimeDisplay(QWidget):
         color_action = QAction("change color", self)
         color_action.triggered.connect(self.get_color)
 
+        reset_size_action = QAction("reset size", self)
+        reset_size_action.triggered.connect(self.reset_size)
+
         menu.addAction(exit_action)
         menu.addAction(color_action)
+        menu.addSeparator()
+        menu.addAction(reset_size_action)
         menu.exec_(event.globalPos())
 
     def setup_qss(self) -> None:
@@ -116,8 +130,41 @@ class TimeDisplay(QWidget):
         font.setPixelSize(high)
         self.time_label.setFont(font)
 
+    def reset_size(self):
+        self._is_resetting = True
+        self.settings.remove("size")
+
+        self.resize(200, 80)
+
+        QTimer.singleShot(0, self._finish_reset)
+
+    def _finish_reset(self):
+        self._is_resetting = False
+        self.update_font_size()
+
+    def save_settings(self) -> None:
+        self.settings.setValue("pos", self.pos())
+        self.settings.setValue("size", self.size())
+
+        if self.color:
+            self.settings.setValue("color", self.color.name())
+
+    def load_settings(self) -> None:
+        pos = self.settings.value("pos")
+        size = self.settings.value("size")
+        color = self.settings.value("color")
+
+        if pos:
+            self.move(pos)
+        if size:
+            self.resize(size)
+        if color:
+            self.color = QColor(color)
+            self.update_qss()
+
     def closeEvent(self, event: QCloseEvent) -> None:
         self.timer.stop()
+        self.save_settings()
         super().closeEvent(event)
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
@@ -179,15 +226,16 @@ class TimeDisplay(QWidget):
         else:
             self.setCursor(Qt.CursorShape.ArrowCursor)
 
-    def mouseReleaseEvent(self, event: QMouseEvent):
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
         self._dragging = False
 
-    def paintEvent(self, event):
+    def paintEvent(self, event) -> None:
         painter = QPainter(self)
         painter.setBrush(QColor(0, 0, 0, 1))
         painter.setPen(Qt.PenStyle.NoPen)
         painter.drawRect(self.rect())
 
-    def resizeEvent(self, event):
+    def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
+        self.time_label.setGeometry(self.rect())
         self.update_font_size()

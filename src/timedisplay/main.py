@@ -6,6 +6,7 @@ from timedisplay.view import TimeDisplay
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
+    app.setStyle("Fusion")
     window = TimeDisplay()
     window.show()
     sys.exit(app.exec())
