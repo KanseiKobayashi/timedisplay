@@ -105,7 +105,6 @@ class TimeDisplay(QWidget):
 
     def get_color(self) -> None:
         self.color = QColorDialog.getColor(parent=self)
-        print(self.color.name())
 
         self.update_qss()
 
