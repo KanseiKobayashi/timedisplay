@@ -1,4 +1,6 @@
 import datetime
+import sys
+from pathlib import Path
 
 from PySide6.QtCore import QSettings, Qt, QTimer
 from PySide6.QtGui import (
@@ -8,12 +10,19 @@ from PySide6.QtGui import (
     QContextMenuEvent,
     QFont,
     QFontMetrics,
+    QIcon,
     QMouseEvent,
     QPainter,
     QPaintEvent,
     QResizeEvent,
 )
-from PySide6.QtWidgets import QApplication, QColorDialog, QLabel, QMenu, QWidget
+from PySide6.QtWidgets import QApplication, QColorDialog, QLabel, QMenu, QSystemTrayIcon, QWidget
+
+
+def resource_path(path: str) -> str:
+    if hasattr(sys, "_MEIPASS"):
+        return str(Path(sys._MEIPASS) / path)
+    return path
 
 
 class TimeDisplay(QWidget):
@@ -30,7 +39,7 @@ class TimeDisplay(QWidget):
 
         self.color = None
 
-        self.setWindowFlags(Qt.WindowType.WindowStaysOnTopHint)
+        self.setWindowFlags(Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
         self.setWindowFlag(Qt.WindowType.NoDropShadowWindowHint)
@@ -40,6 +49,9 @@ class TimeDisplay(QWidget):
 
         self.load_settings()
         self.update_clock()
+
+        self.setup_tray()
+        self.hide()
 
     def setup_widgets(self) -> None:
         self.time_label = QLabel("--:--:--", self)
@@ -56,6 +68,34 @@ class TimeDisplay(QWidget):
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.update_clock)
         self.timer.start(1000)
+
+    def setup_tray(self) -> None:
+        self.tray = QSystemTrayIcon(self)
+        self.tray.setIcon(QIcon(resource_path("src/icon/icon.ico")))
+
+        menu = QMenu()
+
+        show_action = QAction("show", self)
+        show_action.triggered.connect(self.show)
+
+        hide_action = QAction("hide", self)
+        hide_action.triggered.connect(self.hide)
+
+        exit_action = QAction("exit", self)
+        exit_action.triggered.connect(QApplication.quit)
+
+        menu.addAction(show_action)
+        menu.addAction(hide_action)
+        menu.addSeparator()
+        menu.addAction(exit_action)
+
+        self.tray.setContextMenu(menu)
+        self.tray.activated.connect(self.on_tray_activated)
+        self.tray.show()
+
+    def on_tray_activated(self, reason: QSystemTrayIcon.ActivationReason) -> None:
+        if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
+            self.show()
 
     def update_clock(self) -> None:
         if not self.time_label:
